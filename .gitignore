@@ -1,0 +1,15 @@
+# Python virtual environment
+.venv/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Node (presentation build tooling)
+node_modules/
+
+# Local editor / tooling state
+.obsidian/
+.kiro/

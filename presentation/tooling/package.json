@@ -1,0 +1,16 @@
+{
+  "name": "presentation",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Marp deck build with Shiki syntax highlighting and CSS line numbers",
+  "scripts": {
+    "build": "marp --engine ./engine.mjs ../presentation.md -o ../presentation.html",
+    "watch": "marp --engine ./engine.mjs -w ../presentation.md -o ../presentation.html"
+  },
+  "devDependencies": {
+    "@marp-team/marp-cli": "^4.5.0",
+    "@marp-team/marp-core": "^5.0.0",
+    "shiki": "^4.0.2"
+  }
+}
