@@ -97,6 +97,7 @@ progression.
 * **12** `kanban` — An exercise-only agent that generates and updates a Fancy Kanban `weekly-routine.md` via MCP (`src/12`).
 * **13** `modes` — A mode-switching chatbot (neutral/cynical/happy) reviving the 08/09 self-check loop on the qwen server, with a verbose judge and a separate `JUDGE_MODEL_ID` (`src/13`).
 * **14** `typesafe` — Unit 13 with only the judge changed: a TypeSafe **Noul** returns a calibrated probability that the answer is cynical/happy, thresholded in code and shown on screen (`src/14`).
+* **15** `ranking` — Unit 14 extended: generate five answers, score them all in one TypeSafe call, and print them ranked by cynicism/happiness, most first (`src/15`).
 
 ## Planned Units
 
@@ -120,3 +121,4 @@ None currently.
 | 12 kanban | [12_kanban.md](12_kanban.md) | [12_kanban_done.md](12_kanban_done.md) |
 | 13 modes | [13_modes.md](13_modes.md) | [13_modes_done.md](13_modes_done.md) |
 | 14 typesafe | [14_typesafe.md](14_typesafe.md) | [14_typesafe_done.md](14_typesafe_done.md) |
+| 15 ranking | [15_ranking.md](15_ranking.md) | [15_ranking_done.md](15_ranking_done.md) |
