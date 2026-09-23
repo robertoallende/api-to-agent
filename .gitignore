@@ -13,3 +13,7 @@ node_modules/
 # Local editor / tooling state
 .obsidian/
 .kiro/
+
+# Secrets (TypeSafe API key for unit 14)
+.credentials
+**/.credentials

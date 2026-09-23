@@ -95,11 +95,12 @@ progression.
 * **10** `agent` — A Strands `Agent` on Ollama replaces the raw HTTP loop; memory is automatic (`src/10`).
 * **11** `persistence` — Conversation saved to `sessions.md` and reloaded next run via MCP read/write tools (`src/11`).
 * **12** `kanban` — An exercise-only agent that generates and updates a Fancy Kanban `weekly-routine.md` via MCP (`src/12`).
+* **13** `modes` — A mode-switching chatbot (neutral/cynical/happy) reviving the 08/09 self-check loop on the qwen server, with a verbose judge and a separate `JUDGE_MODEL_ID` (`src/13`).
+* **14** `typesafe` — Unit 13 with only the judge changed: a TypeSafe **Noul** returns a calibrated probability that the answer is cynical/happy, thresholded in code and shown on screen (`src/14`).
 
 ## Planned Units
 
-None — the progression is complete. Future talks could extend it with multi-tool
-agents, streaming output, or a hosted (Bedrock/OpenAI) model provider.
+None currently.
 
 ## Dev Log Index
 
@@ -117,3 +118,5 @@ agents, streaming output, or a hosted (Bedrock/OpenAI) model provider.
 | 10 agent | [10_agent.md](10_agent.md) | [10_agent_done.md](10_agent_done.md) |
 | 11 persistence | [11_persistence.md](11_persistence.md) | [11_persistence_done.md](11_persistence_done.md) |
 | 12 kanban | [12_kanban.md](12_kanban.md) | [12_kanban_done.md](12_kanban_done.md) |
+| 13 modes | [13_modes.md](13_modes.md) | [13_modes_done.md](13_modes_done.md) |
+| 14 typesafe | [14_typesafe.md](14_typesafe.md) | [14_typesafe_done.md](14_typesafe_done.md) |

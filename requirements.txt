@@ -1,0 +1,20 @@
+# Dependencies for the Strands agent units (src/10-14).
+# Units 01-09 use only the Python standard library.
+#
+#   python3.12 -m venv .venv
+#   .venv/bin/pip install -r requirements.txt
+
+# Strands agent framework. [openai] pulls the OpenAI-compatible provider used
+# to talk to the local qwen server (OpenAIModel). Use [ollama] instead if you
+# point the samples back at a local Ollama instance.
+strands-agents[openai]
+
+# MCP client for the document server (units 11-12).
+mcp
+
+# Structured-output schema for the weekly routine (unit 12).
+pydantic
+
+# TypeSafe SDK for the Noul-based judge (unit 14). Needs TYPESAFE_API_KEY,
+# loaded from src/14/.credentials at runtime.
+typesafe-sdk
