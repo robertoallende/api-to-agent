@@ -10,11 +10,11 @@ card_fields: kind
 
 | _id | Activity | Day | Kind |
 |-----|----------|-----|------|
-| u15spa9h | Sleep In | Sunday | Rest |
-| t6a4frkb | 5km Run | Monday | Exercise |
-| 4c7ruxyl | Volleyball Practice | Tuesday | Match |
-| hxql3crz | Strength Training | Wednesday | Exercise |
-| w2u6jnhv | Yoga Relaxation | Thursday | Rest |
-| 8b0okorj | Basketball Practice | Friday | Match |
-| 24rs438c | Swimming Workout | Saturday | Exercise |
+| mtaemnas | Rest | Sunday | Rest |
+| 46okt2pe | Run | Monday | Exercise |
+| aawzlid5 | Gym | Tuesday | Exercise |
+| x7bwq5r9 | Run | Wednesday | Exercise |
+| mpdewl6z | Gym | Thursday | Exercise |
+| bg5t7cbx | Gym | Friday | Exercise |
+| eqb1343v | Football | Saturday | Match |
 ```

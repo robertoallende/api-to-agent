@@ -1,4 +1,3 @@
-import json
 import random
 import re
 import string
@@ -7,11 +6,16 @@ from enum import Enum
 from pathlib import Path
 from typing import List
 
-from mcp.client.streamable_http import streamable_http_client
+from openai import OpenAI
 from pydantic import BaseModel, Field
 from strands import Agent, tool
-from strands.models.ollama import OllamaModel
-from strands.tools.mcp import MCPClient
+from strands.models.openai import OpenAIModel
+
+# The qwen server, model, and API details, shared by the agent and the
+# direct structured-extraction call below.
+LLM_BASE_URL = "http://10.130.2.57:8080/v1"
+LLM_API_KEY = "EMPTY"  # local server; the key is required but unused
+LLM_MODEL_ID = "mlx-community/Qwen3-8B-4bit"
 
 ROUTINE_FILE = "weekly-routine.md"
 SCHEMA_FILE = Path(__file__).with_name("fancy-kanban-schema.md")
@@ -29,11 +33,54 @@ SYSTEM_PROMPT = (
     "kanban, files, or any technical or storage detail — the user only thinks "
     "in days and exercises. Talk to them as a coach would, not as software.\n\n"
     "When the user asks to generate, save, or update their routine, you MUST "
-    "call the save_weekly_routine tool."
+    "call the save_weekly_routine tool.\n\n"
+    # Qwen3 is a "thinking" model; /no_think keeps its <think> block empty so
+    # replies stay short and parseable.
+    "/no_think"
 )
 
-model = OllamaModel(host="http://localhost:11434", model_id="llama3.2")
-mcp = MCPClient(lambda: streamable_http_client("http://127.0.0.1:8766/mcp"))
+model = OpenAIModel(
+    client_args={
+        "api_key": LLM_API_KEY,
+        "base_url": LLM_BASE_URL,
+        # The local server is occasionally slow/flaky; allow a long wait and
+        # let the SDK retry connection errors and timeouts automatically.
+        "timeout": 120,
+        "max_retries": 5,
+    },
+    model_id=LLM_MODEL_ID,
+    params={"max_tokens": 2048},
+)
+
+# A direct client for structured extraction. Strands' structured_output cannot
+# parse this thinking model's output (it prefixes a <think> block), so the save
+# tool talks to the server directly and we clean/parse the JSON ourselves.
+llm = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL,
+             timeout=120, max_retries=5)
+
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
+
+
+def strip_think(text: str) -> str:
+    """Remove Qwen3 <think>...</think> reasoning blocks from model output."""
+    return _THINK_RE.sub("", text).strip()
+
+
+def extract_json(text: str) -> str:
+    """Return the first balanced {...} JSON object in text (after stripping think)."""
+    text = strip_think(text)
+    start = text.find("{")
+    if start < 0:
+        raise ValueError(f"no JSON object found in model output: {text[:200]!r}")
+    depth = 0
+    for i in range(start, len(text)):
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start:i + 1]
+    raise ValueError("unbalanced JSON braces in model output")
 
 
 # --- Structured plan the model must produce ------------------------------
@@ -92,18 +139,25 @@ def render_kanban(week: WeekPlan) -> str:
 
 # --- MCP persistence -----------------------------------------------------
 
+# --- Filesystem persistence ----------------------------------------------
+# The routine is stored as a plain file in output/. (The original sample wrote
+# it through an MCP document server; this standalone version writes it directly
+# so no extra server is required.)
+
+OUTPUT_DIR = Path(__file__).resolve().parents[2] / "output"
+ROUTINE_PATH = OUTPUT_DIR / ROUTINE_FILE
+
+
 def load_routine() -> str:
-    result = mcp.call_tool_sync(
-        tool_use_id="load-routine", name="read_document",
-        arguments={"name": ROUTINE_FILE})
-    payload = json.loads(result["content"][0]["text"])
-    return payload.get("text", "")
+    try:
+        return ROUTINE_PATH.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return ""
 
 
 def save_routine(text: str) -> None:
-    mcp.call_tool_sync(
-        tool_use_id="save-routine", name="write_document",
-        arguments={"name": ROUTINE_FILE, "text": text})
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ROUTINE_PATH.write_text(text, encoding="utf-8")
 
 
 def summarize_routine(board: str) -> str:
@@ -135,12 +189,29 @@ def save_weekly_routine(agent: Agent) -> str:
     Reads the plan from the conversation so far and stores it as a Fancy Kanban
     board. Invoked when the user explicitly asks to generate or save the routine.
     """
-    week = agent.structured_output(
-        WeekPlan,
-        "Based on the conversation so far, produce the weekly exercise routine "
-        "as structured data. Provide exactly seven days, Sunday through "
-        "Saturday, each with a kind (Exercise, Rest, or Match) and a short "
-        "activity label.")
+    # Replay the conversation so far to the model and ask for a strict JSON plan.
+    # (structured_output is bypassed because this thinking model prefixes a
+    # <think> block that breaks Strands' JSON parsing.)
+    history = "\n".join(
+        f"{m['role']}: {c['text']}"
+        for m in agent.messages
+        for c in m.get("content", [])
+        if isinstance(c, dict) and "text" in c
+    )
+    instruction = (
+        "/no_think Based on the conversation below, output ONLY a JSON object "
+        "(no prose, no markdown) with this exact shape: "
+        '{"days":[{"day":"Sunday","kind":"Exercise|Rest|Match","activity":"short label"}]} '
+        "containing exactly seven days, Sunday through Saturday, in order.\n\n"
+        f"Conversation:\n{history}"
+    )
+    response = llm.chat.completions.create(
+        model=LLM_MODEL_ID,
+        messages=[{"role": "user", "content": instruction}],
+        max_tokens=1024,
+    )
+    week = WeekPlan.model_validate_json(
+        extract_json(response.choices[0].message.content))
     save_routine(render_kanban(week))
     return "The weekly routine has been saved."
 
@@ -177,34 +248,33 @@ def wants_to_save(text: str) -> bool:
     words = set(re.findall(r"[a-z]+", lowered))
     return any(verb in lowered for verb in SAVE_VERBS) and bool(words & SAVE_TARGETS)
 
-with mcp:
-    system_prompt = SYSTEM_PROMPT
-    summary = summarize_routine(load_routine())
-    if summary:
-        system_prompt += (
-            "\n\nThe user's current weekly routine is:\n\n"
-            + summary + "\n\nHelp them adjust it if they ask, "
-            "always speaking in days and activities.")
+system_prompt = SYSTEM_PROMPT
+summary = summarize_routine(load_routine())
+if summary:
+    system_prompt += (
+        "\n\nThe user's current weekly routine is:\n\n"
+        + summary + "\n\nHelp them adjust it if they ask, "
+        "always speaking in days and activities.")
 
-    # No tools attached: the agent only converses (and deflects off-topic).
-    # Saving is handled deterministically below, not by the model's judgment.
-    agent = Agent(model=model, system_prompt=system_prompt,
-                  callback_handler=None)
+# No tools attached: the agent only converses (and deflects off-topic).
+# Saving is handled deterministically below, not by the model's judgment.
+agent = Agent(model=model, system_prompt=system_prompt,
+              callback_handler=None)
 
-    print("Exercise-routine coach. Chat about your week, and ask me to "
-          "'generate routine' when you're ready. '/quit' to exit.\n")
+print("Exercise-routine coach. Chat about your week, and ask me to "
+      "'generate routine' when you're ready. '/quit' to exit.\n")
 
-    while True:
-        text = input("> ")
+while True:
+    text = input("> ")
 
-        if text.lower() == "/quit":
-            break
+    if text.lower() == "/quit":
+        break
 
-        if wants_to_save(text):
-            print(save_weekly_routine(agent))
-            print()
-            continue
-
-        reply = str(agent(text))
-        print(humanize_tool_call(reply) or reply)
+    if wants_to_save(text):
+        print(save_weekly_routine(agent))
         print()
+        continue
+
+    reply = strip_think(str(agent(text)))
+    print(humanize_tool_call(reply) or reply)
+    print()
